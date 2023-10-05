@@ -29,6 +29,7 @@ library(janitor)
 library(dplyr)
 library(ggplot2)
 library(patchwork)
+library(purrr)
 ```
 
 ## Pruebas de hipótesis
@@ -272,6 +273,85 @@ muestra_tidy <- muestra |>
   mutate(n = n()) |> 
   ungroup()
 ```
+
+
+```{r}
+glimpse(muestra) #SI, NO, NULOS, ESTRATO, ID_ESTADO, ID_SECCION, TIPO_CASILLA, ID_CASILLA
+glimpse(computos) #OPINION_SI, OPINION_NO, NULOS, ESTRATO, ID
+muestra %>% summarise_all(list(~n_distinct(.)))
+computos %>% summarise_all(list(~n_distinct(.)))
+nm <- nrow(muestra)
+nc <- nrow(computos)
+```
+
+```{r}
+muestra <- muestra %>% 
+  mutate(ID_est = as.character(sprintf("%02d", ID_ESTADO ) ) ) %>% 
+  mutate(SEDE = as.character(sprintf("%04d", SECCION ) ) ) %>%
+  mutate(IDCAS = as.character(sprintf("%02d", ID_CASILLA ) ) ) %>%
+  mutate(ID = paste0(ID_est,SEDE,TIPO_CASILLA,IDCAS))
+#glimpse(muestra)
+
+tabla1 <- computos %>%
+  select(ID, ESTRATO,OPINION_SI,OPINION_NO, NULOS)%>% 
+  mutate(TotOpciones = OPINION_SI + OPINION_NO + NULOS)
+
+tabla2 <- muestra %>% #casillas en el i-ésimo estrato de la muestra
+  group_by(ID) %>% 
+  summarise(mues_casXest = n())
+
+tabla3 <- merge(x=tabla1,y=tabla2, 
+             by="ID", all.x=TRUE)
+
+tabla3 <-  mutate(tabla3, mues_casXest = ifelse(is.na(mues_casXest), 0, mues_casXest))
+
+tabla1
+tabla2
+tabla3
+
+```
+
+```{r}
+
+tabla4 <- tabla3 %>% 
+  group_by(ESTRATO) %>% 
+  summarise(Nh = n(), 
+            nh = sum(mues_casXest), 
+            yh_SI = sum(OPINION_SI), 
+            yh_NO = sum(OPINION_NO), 
+            yh_NUL = sum(NULOS),
+            xh = sum(TotOpciones)) %>% 
+  mutate(p_SI_num =  Nh/nh*yh_SI,
+         p_NO_num =  Nh/nh*yh_NO,
+         p_NUL_num = Nh/nh*yh_NUL,
+         p_denominador = Nh/nh*xh)
+
+tabla4
+
+```
+
+
+
+
+```{r}
+tabla5 <- tabla4 %>% 
+  summarise(p_SI = sum(p_SI_num)/sum(p_denominador),
+            p_NO = sum(p_NO_num)/sum(p_denominador),
+            p_NUL = sum(p_NUL_num)/sum(p_denominador))
+
+tabla5
+
+```
+
+
+
+```{r}
+#Comprobación
+0.9776048+0.01526359+0.007131582
+
+```
+
+
 
 2.  Utiliza **bootstrap** para calcular el error estándar, y reporta tu estimación del error.
 
