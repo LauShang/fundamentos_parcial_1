@@ -1,7 +1,7 @@
 ---
 title: "Parcial-2023"
-author: "Blanca García 000118886"
-"Yuneri Pérez 000xxxxxx"
+author: "Lauro 000XXXXXX"
+        "Sara luz valenzuela Camacho 000204535"
 date: "2023-10-04"
 output: html_document
 editor_options: 
@@ -22,8 +22,13 @@ editor_options:
 -   Si tienes preguntas puedes escribirlas en el anuncio de canvas del examen.
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning=FALSE, error=TRUE, message = FALSE)
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, error = TRUE, message = FALSE)
 library(tidyverse)
+library(nullabor)
+library(janitor)
+library(dplyr)
+library(ggplot2)
+library(patchwork)
 ```
 
 ## Pruebas de hipótesis
@@ -34,23 +39,170 @@ Nos dan el siguiente conjunto de datos:
 
 ```{r}
 zapatos <- read_csv("datos/zapatos-1.csv")
+zapatos <- zapatos %>% mutate(material = paste('material',as.character(material) ) )
 zapatos
 ```
 
 1.  Realiza una prueba de hipótesis visual y describe tus conclusiones (cuál es el nivel de significancia de la prueba?).
 
     ```{r}
-
+#Use el ejercicio 04 (visto en clase) para resolver éste
+set.seed(12345)
+perms_material <- lineup(null_permute("material"), zapatos, n = 10)
+ggplot(perms_material, aes(x = material, y = desgaste)) +
+  geom_boxplot() + facet_wrap(~.sample) 
     ```
+
+```{r}
+decrypt("mNfY ky7y wq Fxrw7wxq uW")
+```
+**No tenemos evidencia de que haya diferencia entre los materiales, ya que no pudimos distinguir en la prueba visual los datos reales. De haberlo distinguido el nivel de significancia sería de 1/10 **
+
 
 2.  Realiza una prueba de permutaciones para la diferencia de las medias, escribe la hipótesis nula, la hipótesis alterna y tus conclusiones.
 
+**Primero vamos a calcular la diferencia observada en el promedio del desgaste para ambos materiales**
+
+```{r}
+#Use la tarea 04 para resolver éste
+
+promedios <- zapatos |> 
+  group_by(material) |> 
+  summarize(prom_desgaste = mean(desgaste, na.rm = TRUE)) |> 
+  pivot_wider(names_from = material, values_from = prom_desgaste) |>
+  rename("m1" = "material 1", "m2" = "material 2") |> 
+  mutate(diferencia1 = m2 - m1)
+
+diferencia_observada <- promedios |>   pull (diferencia1) |> round(3)
+
+diferencia_observada
+
+```
+**La hipotesis nula es que los dos materiales tienen distribuciones iguales, esto es mismo desgaste**
+
+**Bajo nuestra hipotesis nula, producimos una cantidad grande de muestras permutando las etiquetas de los grupos.**
+
+```{r}
+#Hacemos las permutaciones del material
+permut_material <- lineup(null_permute("material"), zapatos, n=5000)
+glimpse(permut_material)
+```
+
+Evaluamos nuestra estadistica de prueba en cada una de las muestras permutadas
+
+```{r}
+valores_ref <- permut_material |> 
+  group_by(material, .sample) |> 
+  summarise(media = mean(desgaste)) |> 
+  pivot_wider(names_from = material, values_from = media) |> 
+  rename("m1" = "material 1", "m2" = "material 2") |>
+  mutate(diferencia = m2 - m1)
+
+valores_ref
+```
+
+
+
+```{r}
+dist_perm <- ecdf(valores_ref$diferencia)
+
+percentil_obs <- dist_perm(diferencia_observada)
+
+g_1 <- ggplot(valores_ref, aes(sample = diferencia)) + geom_qq(distribution = stats::qunif)  +
+  xlab("f") + ylab("diferencia") + labs(subtitle = "Distribución nula o de referencia") +
+  geom_hline(yintercept = diferencia_observada, colour = "red") +
+  annotate("text", x = 0.35, y = diferencia_observada - 0.1, label = "diferencia observada", colour = "red")
+
+g_2 <- ggplot(valores_ref, aes(x = diferencia)) + geom_histogram(binwidth = 0.04) +
+  coord_flip() + xlab("") + labs(subtitle = " ") +
+  geom_vline(xintercept = diferencia_observada, colour = "red") +
+  annotate("text", x = diferencia_observada, y = 1500 * .3, label = percentil_obs,vjust = -0.2, colour = "red")
+g_1 + g_2
+```
+
+
+
+
+```{r}
+2*min(dist_perm(diferencia_observada),(1-dist_perm(diferencia_observada)))
+```
+
+**Tiene un 68% de probabilidad de ocurrir, por lo que no hay mucha evidencia encontra de la hipotesis nula.**
+
+
+
 3.  Después de discutir con los responsables del proyecto descubrimos que nos faltaba conocer detalles del proceso generador de datos: el experimento se realizó asignando al azar un material a uno de sus zapatos y el otro material al otro zapato de cada niño. ¿Cómo incorporas esta información en tu prueba de hipótesis del inciso 2? ¿Cambian tus conclusiones?
+
+**Ésta es un prueba pareada, ya que se puede decir que ambos pies de cada niño son similares, por lo que debemos de tener cuidado de no destruir esta estructura. Para ello lo que debemos hacer es permutar al azar en cada niño el desgaste de cada zapato. Esto al azar vamos a decidir si para el i-ésimo niño cambiamos el desgaste del material 1 y 2, o si los dejamos como están.**
 
 ```{r}
 zapatos <- read_csv("datos/zapatos-2.csv")
+zapatos <- zapatos %>% 
+  pivot_wider(names_from = material, values_from = desgaste) %>% 
+  rename("id" = "niño", "m1" = "1", "m2" = "2") %>% 
+  mutate(diff = m1 - m2 )
+  
 zapatos
 ```
+
+**Nuestra hipotesís nula es que ambos materiales se desgastan igual, que implica que al restar el desgaste por niño del material A y luego del material B, y luego sacar el promedio de todos los niños de ésta diferencia, vamos a obtener cero**
+
+```{r}
+#https://www.youtube.com/watch?v=3e6ZM-oWwbM
+
+m = 5000
+
+nulldist <- rep(12345, m) 
+dif_prom <- zapatos %>% 
+  summarise(prom = mean(diff)) %>% 
+  pull(prom)
+
+n <- nrow(zapatos)
+
+set.seed(1234)
+
+dif_prom
+
+```
+Seleccionamos al azar algunos niños a los que se les va a cambiar el signo de su diferencia en desgaste
+
+```{r}
+for(i in 1:m){
+  signs <- sample(c(-1,1), size = n, replace = TRUE)
+  simdiffs <- signs*zapatos$diff
+  nulldist[i] <- mean(simdiffs)
+}
+```
+
+
+
+```{r}
+hist(nulldist)
+abline(v = dif_prom, col = "red") 
+
+```
+
+**Como nuestra hipótesis nula señala que nodebe hacer difrencia entre ambos materiales, vemos que el histograma es congruente ya que tiene su media en cero**
+
+
+```{r}
+# nuestra diferencia calculada con la muestra original
+(lowtail <- sum(nulldist <= dif_prom)+1) 
+# el número de veces que la diferencia fue mayor al calculado (más uno porque tomamos en cuenta el calculado con la original)
+(uptail <- sum(nulldist >= dif_prom)+1)
+# el número de veces que la diferencia fue menor al calculado (más uno porque tomamos en cuenta el calculado con la original)
+(numerator <- min(lowtail, uptail))
+# tomamos el menor de estos dos números
+denom <- m+1
+(pval <- 2*numerator/denom)
+```
+
+**Como nuestra hipótesis alterna es que sí existe una diferencia, ya sea negativa o positiva, tenemos que usar dos colas.**
+
+```{r}
+(pval <- 2*numerator/denom)
+```
+**Tiene un 1% de probabilidad de ocurrir, por lo que sí hay evidencia encontra de la hipotesis nula. Que significa que sí hay diferencia en el desgaste entre los materiales A y B**
 
 ## Bootstrap
 
@@ -125,6 +277,7 @@ muestra_tidy <- muestra |>
 
     -   Genera 1000 muestras bootstrap.
     -   Recuerda que las muestras bootstrap tienen que tomar en cuenta la metodología que se utilizó en la selección de la muestra original, en este caso implica que para cada remuestra debes tomar muestra aleatoria independiente dentro de cada estrato.
+
 
 3.  Construye un intervalo del 95% de confianza utilizando el método normal. Revisa si el supuesto de normalidad es razonable.
 
