@@ -40,16 +40,60 @@ Nos dan el siguiente conjunto de datos:
 
 ```{r}
 zapatos <- read_csv("datos/zapatos-1.csv")
+zapatos <- zapatos %>% mutate(material = paste('material',as.character(material) ) )
 zapatos
 ```
 
 1.  Realiza una prueba de hipótesis visual y describe tus conclusiones (cuál es el nivel de significancia de la prueba?).
 
-    ```{r}
-
-    ```
+```{r}
+set.seed(12345)
+reps <- lineup(null_permute("material"), zapatos, n = 20)
+ggplot(reps, aes(y=material, x=desgaste)) + 
+  geom_boxplot() + facet_wrap(~.sample)
+```
+```{r}
+decrypt("nsW7 Ykjk l3 gCPljlC3 41")
+```
+-  Se observa mucha variabilidad en las muestras y no podemos decir qué valores son los verdaderos
+- el nivel de significancia de la prueba fue de  0.05.
 
 2.  Realiza una prueba de permutaciones para la diferencia de las medias, escribe la hipótesis nula, la hipótesis alterna y tus conclusiones.
+
+```{r}
+dif_obs <- zapatos |>
+  group_by(material) |>
+  summarise(prop_desgaste = mean(desgaste), .groups = 'drop') |>
+  pivot_wider(names_from = material, values_from = prop_desgaste) |>
+  mutate(diferencia_prop = `material 1` - `material 2`) |>
+  pull(diferencia_prop)
+# dist referencia
+reps <- lineup(null_permute("material"), zapatos, n = 10000)
+valores_ref <- reps |>
+  group_by(.sample, material) |>
+  summarise(prop_desgaste = mean(desgaste), .groups = 'drop') |>
+  pivot_wider(names_from = material, values_from = prop_desgaste) |>
+  mutate(diferencia = `material 1` - `material 2`)
+# Función de distribución acumulada (inverso de función de cuantiles)
+dist_perm <- ecdf(valores_ref$diferencia)
+# Calculamos el percentil del valor observado
+percentil_obs <- dist_perm(dif_obs)
+g_1 <- ggplot(valores_ref, aes(sample = diferencia)) + geom_qq(distribution = stats::qunif)  +
+  xlab("f") + ylab("diferencia") + labs(subtitle = "Distribución nula o de referencia") +
+  geom_hline(yintercept = dif_obs, colour = "red") +
+  annotate("text", x = 0.35, y = dif_obs - 0.03, label = "diferencia observada", colour = "red")
+g_2 <- ggplot(valores_ref, aes(x = diferencia)) + geom_histogram(binwidth = 0.5) +
+  coord_flip() + xlab("") + labs(subtitle = " ") +
+  geom_vline(xintercept = dif_obs, colour = "red") +
+  annotate("text", x = dif_obs, y = N_rep * .3, label = percentil_obs,vjust = -0.2, colour = "red")
+g_1 + g_2
+```
+```{r}
+p_value <- 2 * min(dist_perm(dif_obs), (1 - dist_perm(dif_obs)))
+p_value
+```
+
+- al ver la diferencia mostradada con la distribución de referencia, donde no se observa un valor extremo y un p_values tan alto, no tenemos evidencia en contra de la hipótesis nula.
 
 3.  Después de discutir con los responsables del proyecto descubrimos que nos faltaba conocer detalles del proceso generador de datos: el experimento se realizó asignando al azar un material a uno de sus zapatos y el otro material al otro zapato de cada niño. ¿Cómo incorporas esta información en tu prueba de hipótesis del inciso 2? ¿Cambian tus conclusiones?
 
@@ -57,6 +101,36 @@ zapatos
 zapatos <- read_csv("datos/zapatos-2.csv")
 zapatos
 ```
+alores_ref <- reps |>
+  group_by(.sample, material) |>
+  summarise(prop_desgaste = mean(desgaste), .groups = 'drop') |>
+  pivot_wider(names_from = material, values_from = prop_desgaste) |>
+  mutate(diferencia = `material 1` - `material 2`)
+
+```{r}
+zapatos_pareados <- zapatos |>
+  group_by(niño) |>
+  summarise(diferencia = diff(desgaste), .groups = 'drop')
+dif_obs <- mean(zapatos_pareados$diferencia)
+# dist referencia
+reps <- lineup(null_permute("niño"), zapatos_pareados, n = 5000)
+valores_ref <- reps |>
+  group_by(.sample,niño) |>
+  summarise(prop_diferencia = mean(diferencia), .groups = 'drop')
+dist_perm <- ecdf(valores_ref$prop_diferencia)
+# Calculamos el percentil del valor observado
+percentil_obs <- dist_perm(dif_obs)
+g_1 <- ggplot(valores_ref, aes(sample = prop_diferencia)) + geom_qq(distribution = stats::qunif)  +
+  xlab("f") + ylab("diferencia") + labs(subtitle = "Distribución nula o de referencia") +
+  geom_hline(yintercept = dif_obs, colour = "red") +
+  annotate("text", x = 0.35, y = dif_obs - 0.03, label = "diferencia observada", colour = "red")
+g_2 <- ggplot(valores_ref, aes(x = prop_diferencia)) + geom_histogram(binwidth = 0.5) +
+  coord_flip() + xlab("") + labs(subtitle = " ") +
+  geom_vline(xintercept = dif_obs, colour = "red") +
+  annotate("text", x = dif_obs, y = N_rep * .3, label = percentil_obs,vjust = -0.2, colour = "red")
+g_1 + g_2
+```
+- no creo que esté bien :(
 
 ## Bootstrap
 
