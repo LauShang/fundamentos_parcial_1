@@ -1,7 +1,7 @@
 ---
 title: "Parcial-2023"
-author: "Blanca García 000118886"
-"Yuneri Pérez 000xxxxxx"
+author: "Lauro Reyes Rosas 000213245"
+        "Sara luz valenzuela Camacho 000204535"
 date: "2023-10-04"
 output: html_document
 editor_options: 
@@ -22,8 +22,14 @@ editor_options:
 -   Si tienes preguntas puedes escribirlas en el anuncio de canvas del examen.
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning=FALSE, error=TRUE, message = FALSE)
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, error = TRUE, message = FALSE)
 library(tidyverse)
+library(nullabor)
+library(janitor)
+library(dplyr)
+library(ggplot2)
+library(patchwork)
+library(purrr)
 ```
 
 ## Pruebas de hipótesis
