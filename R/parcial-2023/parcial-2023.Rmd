@@ -546,6 +546,17 @@ boot_aux
 
 -   Grafica los intervalos y calcula la proporción de ellos que contienen el verdadero valor observado. Describe tus observaciones y compara con el intervalo obtenido en el ejercicio anterior.
 
+```{r}
+#total <- sum(poblacion_casas$precio_miles)
+#sims_tbl <- sims_intervalos |> 
+#  bind_rows() |>
+#  mutate(cubre = inf < total & total < sup) 
+#ggplot(sims_tbl, aes(x = rep)) +
+#  geom_hline(yintercept = total, colour = "red") +
+#  geom_linerange(aes(ymin = inf, ymax = sup, colour = cubre)) 
+```
+
+
 
 
 #### Análisis Exploratorio
