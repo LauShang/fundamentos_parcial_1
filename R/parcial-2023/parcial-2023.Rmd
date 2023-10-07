@@ -1,7 +1,7 @@
 ---
 title: "Parcial-2023"
-author: "Lauro 000XXXXXX"
-        "Sara luz valenzuela Camacho 000204535"
+author: "Lauro Reyes Rosas 000213245"
+        "Sara luz Valenzuela Camacho 000204535"
 date: "2023-10-04"
 output: html_document
 editor_options: 
@@ -276,69 +276,75 @@ muestra_tidy <- muestra |>
 
 
 ```{r}
-glimpse(muestra) #SI, NO, NULOS, ESTRATO, ID_ESTADO, ID_SECCION, TIPO_CASILLA, ID_CASILLA
+glimpse(muestra_tidy) #SI, NO, NULOS, ESTRATO, ID
 glimpse(computos) #OPINION_SI, OPINION_NO, NULOS, ESTRATO, ID
 muestra %>% summarise_all(list(~n_distinct(.)))
 computos %>% summarise_all(list(~n_distinct(.)))
-nm <- nrow(muestra)
+nm <- nrow(muestra_tidy)
 nc <- nrow(computos)
 ```
 
 ```{r}
 #https://ayuda.ine.mx/2021/informate/assets/consultapopular/manual-interpretacion-bd.pdf
-muestra <- muestra %>% 
-  mutate(ID_est = as.character(sprintf("%02d", ID_ESTADO ) ) ) %>% 
-  mutate(SEDE = as.character(sprintf("%04d", SECCION ) ) ) %>%
-  mutate(IDCAS = as.character(sprintf("%02d", ID_CASILLA ) ) ) %>%
-  mutate(ID = paste0(ID_est,SEDE,TIPO_CASILLA,IDCAS))
+#muestra <- muestra %>% 
+#  mutate(ID_est = as.character(sprintf("%02d", ID_ESTADO ) ) ) %>% 
+#  mutate(SEDE = as.character(sprintf("%04d", SECCION ) ) ) %>%
+#  mutate(IDCAS = as.character(sprintf("%02d", ID_CASILLA ) ) ) %>%
+#  mutate(ID = paste0(ID_est,SEDE,TIPO_CASILLA,IDCAS))
 #glimpse(muestra)
 
 tabla1 <- computos %>%
-  select(ID, ESTRATO,OPINION_SI,OPINION_NO, NULOS)%>% 
-  mutate(TotOpciones = OPINION_SI + OPINION_NO + NULOS)
+  select(ID, ESTRATO)
 
-tabla2 <- muestra %>% #casillas en el i-ésimo estrato de la muestra
-  group_by(ID) %>% 
+tabla2 <- muestra_tidy %>% #casillas en el i-ésimo estrato de la muestra
+  group_by(ID, ESTRATO, SI, NO, NULOS, TOTAL) %>% 
   summarise(mues_casXest = n())
 
 tabla3 <- merge(x=tabla1,y=tabla2, 
-             by="ID", all.x=TRUE)
+             by=c("ID"="ID","ESTRATO"="ESTRATO"), all.x = TRUE)
 
-tabla3 <-  mutate(tabla3, mues_casXest = ifelse(is.na(mues_casXest), 0, mues_casXest))
+colSums(is.na(tabla3))
 
-tabla1
-tabla2
+tabla4 <- merge(x=tabla1,y=tabla2, 
+             by=c("ID"="ID","ESTRATO"="ESTRATO"), all.y = TRUE)
+
+colSums(is.na(tabla4))
+
+tabla3 <-  tabla3 %>% 
+  mutate(tabla3, mues_casXest = ifelse(is.na(mues_casXest), 0, mues_casXest)) 
+
+
+colSums(is.na(tabla3))
+
+tabla3 <- tabla3 %>% filter(is.na(ESTRATO)) 
+tabla3 <- tabla3 %>% mutate(tabla3, ESTRATO = ifelse(is.na(ESTRATO), 0, ESTRATO)) 
+tabla3 <- tabla3 %>% mutate(tabla3, SI = ifelse(is.na(SI), 0, SI)) 
+tabla3 <- tabla3 %>% mutate(tabla3, NO = ifelse(is.na(NO), 0, NO)) 
+tabla3 <- tabla3 %>% mutate(tabla3, NULOS = ifelse(is.na(NULOS), 0, NULOS)) 
+tabla3 <- tabla3 %>% mutate(tabla3, TOTAL = ifelse(is.na(TOTAL), 0, TOTAL))
+
+tabla3 <- rbind(tabla3, tabla4)
+
+#tabla1
+#tabla2
 tabla3
-
+#tabla4
 ```
 
 ```{r}
 
-tabla4 <- tabla3 %>% 
+tabla5 <- tabla3 %>% 
   group_by(ESTRATO) %>% 
   summarise(Nh = n(), 
             nh = sum(mues_casXest), 
-            yh_SI = sum(OPINION_SI), 
-            yh_NO = sum(OPINION_NO), 
+            yh_SI = sum(SI), 
+            yh_NO = sum(NO), 
             yh_NUL = sum(NULOS),
-            xh = sum(TotOpciones)) %>% 
+            xh = sum(TOTAL)) %>% 
   mutate(p_SI_num =  Nh/nh*yh_SI,
          p_NO_num =  Nh/nh*yh_NO,
          p_NUL_num = Nh/nh*yh_NUL,
          p_denominador = Nh/nh*xh)
-
-tabla4
-
-```
-
-
-
-
-```{r}
-tabla5 <- tabla4 %>% 
-  summarise(p_SI = sum(p_SI_num)/sum(p_denominador),
-            p_NO = sum(p_NO_num)/sum(p_denominador),
-            p_NUL = sum(p_NUL_num)/sum(p_denominador))
 
 tabla5
 
@@ -346,11 +352,24 @@ tabla5
 
 
 
+
+```{r}
+tabla6 <- tabla5 %>% 
+  summarise(p_SI = sum(p_SI_num)/sum(p_denominador),
+            p_NO = sum(p_NO_num)/sum(p_denominador),
+            p_NUL = sum(p_NUL_num)/sum(p_denominador))
+
+tabla6
+
+```
+
+
+
 ```{r}
 #Comprobación
-propSi = tabla5[1]
-propNo = tabla5[2]
-propNu = tabla5[3]
+propSi = tabla6[1]
+propNo = tabla6[2]
+propNu = tabla6[3]
 propSi + propNo + propNu
 
 ```
@@ -363,24 +382,56 @@ propSi + propNo + propNu
     -   Recuerda que las muestras bootstrap tienen que tomar en cuenta la metodología que se utilizó en la selección de la muestra original, en este caso implica que para cada remuestra debes tomar muestra aleatoria independiente dentro de cada estrato.
 
 ```{r}
-tabla6 <- muestra %>% 
+tabla7 <- muestra %>% 
   select(ESTRATO,ID, SI, NO, NULOS, TOTAL) %>% 
     group_by(ESTRATO) %>% 
-    mutate(n = n_distinct(ID)) %>% # número de casillas por estrato
-    ungroup()
-
-tabla6
+    mutate(n = n_distinct(ID))# %>% # número de casillas por estrato
+#    ungroup()
+tabla7
+tabla2
 
 ```
 
+Observamos que en el proceso de muestreo se tomaron muestras de 2, 3, 4, 5, 6 y 7 de cada uno de los 1,745 estratos, por lo que tenemos que replicar este proceso en el remuestreo
 
 
 ```{r}
-#ACA ME ATORE, LO VOY A ESTUDIAR Y LUEGO YA LO HAGO
-# creamos una tabla con los estratos 
-est_casilla <- tabla6 %>% 
-  distinct(ESTRATO, SI, NO, NULOS, TOTAL, n) %>% 
-  arrange(ESTRATO)
+N_boot <- 1000
+boot_mns <- rep(NA, N_boot)
+# necesito lista de estratos para hacer un for de muestras en tabla7$ESTRATO[1]
+#dfMale <- tabla7[which(tabla7$ESTRATO == tabla7$ESTRATO[1]),]
+#dfMale
+#
+
+#con esos estratos remuestrear  sample_n(tabla2, , replace=T)
+
+#volverlos a juntar tabla3 <- rbind(tabla3, tabla4)
+
+#y eso es una remuestra, hacerlo 1000 veces
+
+for (i in 1:N_boot) {
+  tabla7$n[1]
+  
+}
+
+
+
+
+
+
+
+for(i in 1:N_boot) {
+   B_SI <- sample_n(tabla2, , replace=T)  
+   B_NO <- sample(tabla2$SI, prob=wts[tabla2$ESTRATO])
+   B_NULO <- sample(tabla2$SI, prob=wts[tabla2$ESTRATO])
+                 # or prob=wts[as.numeric(as.factor(my_df$stratum))] as needed
+   boot_mns[i] <- mean(B)
+}
+
+
+df %>% 
+  group_by(V1) %>% 
+  sample_n(10, replace=T)
 
 ```
 
