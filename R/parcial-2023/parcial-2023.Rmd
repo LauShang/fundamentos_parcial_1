@@ -89,7 +89,7 @@ permut_material <- lineup(null_permute("material"), zapatos, n=5000)
 glimpse(permut_material)
 ```
 
-Evaluamos nuestra estadistica de prueba en cada una de las muestras permutadas
+**Evaluamos nuestra estadistica de prueba en cada una de las muestras permutadas**
 
 ```{r}
 valores_ref <- permut_material |> 
@@ -165,7 +165,7 @@ set.seed(1234)
 dif_prom
 
 ```
-Seleccionamos al azar algunos niños a los que se les va a cambiar el signo de su diferencia en desgaste
+**Seleccionamos al azar algunos niños a los que se les va a cambiar el signo de su diferencia en desgaste**
 
 ```{r}
 for(i in 1:m){
@@ -350,7 +350,7 @@ tabla5
 
 ```
 
-
+**Finalmente el estimador(proporción) para cada opción es**
 
 
 ```{r}
@@ -381,27 +381,33 @@ propSi + propNo + propNu
     -   Genera 1000 muestras bootstrap.
     -   Recuerda que las muestras bootstrap tienen que tomar en cuenta la metodología que se utilizó en la selección de la muestra original, en este caso implica que para cada remuestra debes tomar muestra aleatoria independiente dentro de cada estrato.
     
-Primero obtenemos una lista con todos los estratos de la muestra
+**Primero obtenemos una lista con todos los estratos de la muestra, y una lista con los totales de casilla por estrato**
 
 ```{r}
+#Tabla que usaremos para las remuestras
 tabla_muestra <- muestra_tidy %>% 
 #  mutate(si_no_nul = paste(SI,NO,NULOS)) %>% 
   select(ESTRATO, SI,NO, NULOS, TOTAL, n)
 
 tabla_muestra
-
+#Lista de estratos
 estratos <- unique(muestra_tidy$ESTRATO)
 
 estratos[1]
 EST <- dim(tibble(estratos))[1]
 EST
-
+#Totales de casilla por estrato
 tablaN <- tabla5 %>% select(ESTRATO, Nh)
 tablaN
 
 ```
 
+**Hacemos el bootstrap**
+
+
 ```{r}
+
+
 Super_boot<- function(tabla_muestra, estratos, EST, tablaN){
 N_boot <- 1000
 boot_final <- tibble(p_SI = numeric(), p_NO = numeric(), p_NUL = numeric())
@@ -438,7 +444,7 @@ return(boot_final)
 boot_final <-  Super_boot(tabla_muestra, estratos, EST, tablaN)
 ```
 
-Una vez realizado el bootstrap, el error estándar es igual a la desviación estándar de la distribución bootstrap:
+**Una vez realizado el bootstrap, el error estándar es igual a la desviación estándar de la distribución bootstrap:**
 
 
 ```{r}
@@ -482,20 +488,30 @@ g_hist1 + g_qq_normal1
 g_hist2 + g_qq_normal2
 g_hist3 + g_qq_normal3
 ```
-**FALTA HABLAR DE LAS COLAS **
+**La distribución está sesgada a la derecha, ya que tiene largas colas a la izquierda, y colas cortas a la derecha **
 
 4.  Reporta tus intervalos en una tabla. Compara la longitud de los 3 intervalos y describe que observas.
 
-**FALTA TABLA**
+|                  |  Inferior| Superior | Longitud |  p estimado||  p real   |
+|:-----------------|---------:|---------:|---------:|------------:|----------:|
+|Opción Sí         | 0.9011299| 0.9607356|0.0596057 |0.9307454    |0.9772147  |
+|Opción No         |0.01383786|0.01572887|0.00189101|0.01477969   |0.01544977 |
+|Nulos             |0.02407799|0.08448975|0.06041176|0.05447491   |0.007335506|
+
+
+**Los estimadores de P para cada una de las variables, si se encuentran dentro del intervalo.**
+
 
 5.  ¿Tus intervalos contienen los valores observados en los cómputos? Explica los resultados observados.
 
-**Los tres intervalos contienen a los p_gorro calculados**
+**Sólo uno de los valores reales se encuentran dentro del intervalo calculado, el de la opción "No".**
 
 
 #### Calibración
 
 Selecciona al menos 50 muestras del mismo tamaño y con el mismo diseño que la muestra utilizada en el conteo rápido. Esto es, selecciona el mismo número de casillas, usando muestreo aleatorio simple dentro de cada estrato.
+
+**Construyo la tabla para seleccionar de ahí las muestras**
 
 ```{r}
 tabla_calib <- computos %>% 
@@ -509,6 +525,7 @@ tabla_calib
 tabla_muestra
 ```
 
+**Selecciono las 50 muestras**
 
 ```{r}
 #df3 <- cbind(df, chapters, price)
@@ -533,31 +550,100 @@ for (j in 1:50) {
 -   Para cada muestra calcula un intervalo del 95% de confianza usando bootstrap.
 
 ```{r}
-tabla_aux <- muestras_calibracion[which(muestras_calibracion$id == 5),]
+intervalos_tot = tibble()
 
-tabla_aux %>% select(ESTRATO, SI, NO, NULOS, TOTAL,n)
+for (k in 1:50) {
+  tabla_aux <- muestras_calibracion[which(muestras_calibracion$id == k),]
+  tabla_aux %>% select(ESTRATO, SI, NO, NULOS, TOTAL,n)
+  boot_aux <- Super_boot(tabla_aux, estratos, EST, tablaN)
+  intervalo_aux <- boot_aux  %>% 
+    summarize(si_int_inf = mean(p_SI)-2*sd(p_SI), si_int_sup = mean(p_SI)+2*sd(p_SI),
+              no_int_inf = mean(p_NO)-2*sd(p_NO), no_int_sup = mean(p_NO)+2*sd(p_NO),
+              nul_int_inf = mean(p_NUL)-2*sd(p_NUL), nul_int_sup = mean(p_NUL)+2*sd(p_NUL),
+              si_int_infq = quantile(p_SI,0.025), si_int_supq = quantile(p_SI,0.975),
+              no_int_infq = quantile(p_NO,0.025), no_int_supq = quantile(p_NO,0.975),
+              nul_int_infq = quantile(p_NUL,0.025), nul_int_supq = quantile(p_NUL,0.975))
+  intervalo_aux <- cbind(k,intervalo_aux)
+  intervalos_tot <- rbind(intervalos_tot, intervalo_aux)
+}
 
-boot_aux <- Super_boot(tabla_aux, estratos, EST, tablaN)
-boot_aux
-
-
+intervalos_tot
 ```
 
 
 -   Grafica los intervalos y calcula la proporción de ellos que contienen el verdadero valor observado. Describe tus observaciones y compara con el intervalo obtenido en el ejercicio anterior.
 
+
 ```{r}
-#total <- sum(poblacion_casas$precio_miles)
-#sims_tbl <- sims_intervalos |> 
-#  bind_rows() |>
-#  mutate(cubre = inf < total & total < sup) 
-#ggplot(sims_tbl, aes(x = rep)) +
-#  geom_hline(yintercept = total, colour = "red") +
-#  geom_linerange(aes(ymin = inf, ymax = sup, colour = cubre)) 
+prop_verdadera <- computos %>% 
+  summarise(propSi_verdadera = sum(OPINION_SI)/sum(TOTAL_OPINIONES),
+            propNo_verdadera = sum(OPINION_NO)/sum(TOTAL_OPINIONES),
+            propNul_verdadera = sum(NULOS)/sum(TOTAL_OPINIONES))
+
+propSi_verdadera <- prop_verdadera %>% pull(propSi_verdadera)
+propNo_verdadera <- prop_verdadera %>% pull(propNo_verdadera)
+propNul_verdadera <- prop_verdadera %>% pull(propNul_verdadera)
+
+propSi_verdadera
+propNo_verdadera
+propNul_verdadera
 ```
 
 
+```{r}
+#total <- sum(poblacion_casas$precio_miles)
+interval_cubre <- intervalos_tot |> 
+#  bind_rows() |>
+  mutate(cubre_sn = si_int_inf   < propSi_verdadera & propSi_verdadera < si_int_sup,
+         cubre_sq = si_int_infq  < propSi_verdadera & propSi_verdadera < si_int_supq,
+         cubre_nn = no_int_inf   < propNo_verdadera & propNo_verdadera < no_int_sup,
+         cubre_nq = no_int_infq  < propNo_verdadera & propNo_verdadera < no_int_supq,
+         cubre_un = nul_int_inf  < propNul_verdadera & propNul_verdadera < nul_int_sup,
+         cubre_uq = nul_int_infq < propNul_verdadera & propNul_verdadera < nul_int_supq) 
 
+norm_si <- ggplot(interval_cubre, aes(x = k)) +
+  geom_hline(yintercept = propSi_verdadera, colour = "red") +
+  geom_linerange(aes(ymin = si_int_inf, ymax = si_int_sup, colour = cubre_sn)) 
+
+quart_si <- ggplot(interval_cubre, aes(x = k)) +
+  geom_hline(yintercept = propSi_verdadera, colour = "red") +
+  geom_linerange(aes(ymin = si_int_infq, ymax = si_int_supq, colour = cubre_sq)) 
+
+norm_no <- ggplot(interval_cubre, aes(x = k)) +
+  geom_hline(yintercept = propNo_verdadera, colour = "red") +
+  geom_linerange(aes(ymin = no_int_inf, ymax = no_int_sup, colour = cubre_nn)) 
+
+quart_no <- ggplot(interval_cubre, aes(x = k)) +
+  geom_hline(yintercept = propNo_verdadera, colour = "red") +
+  geom_linerange(aes(ymin = no_int_infq, ymax = no_int_supq, colour = cubre_nq)) 
+
+norm_nul <- ggplot(interval_cubre, aes(x = k)) +
+  geom_hline(yintercept = propNul_verdadera, colour = "red") +
+  geom_linerange(aes(ymin = nul_int_inf, ymax = nul_int_sup, colour = cubre_un)) 
+
+quart_nul <- ggplot(interval_cubre, aes(x = k)) +
+  geom_hline(yintercept = propNul_verdadera, colour = "red") +
+  geom_linerange(aes(ymin = nul_int_infq, ymax = nul_int_supq, colour = cubre_uq)) 
+
+norm_si+quart_si
+norm_no+quart_no
+norm_nul+quart_nul
+```
+
+```{r}
+interval_cubre %>%
+  summarise(cobertura_SI_sd = mean(cubre_sn),
+            cobertura_SI_qt = mean(cubre_sq),
+            cobertura_NO_sd = mean(cubre_nn),
+            cobertura_NO_qt = mean(cubre_nq),
+            cobertura_NULOS_sd = mean(cubre_un),
+            cobertura_NULOS_qt = mean(cubre_uq))
+```
+**Solo 88% de los intervalos de la Opción Sí contienen al valor real.**
+**Solo 88% de los intervalos de la Opción No contienen al valor real**
+**Solo 74% de los intervalos de los Nulos contienen al valor real**
+
+**Estos porcentajes de cobertura menores al 95%, se deben a que la distribución, como observamos, se encuentra sesgada a la derecha**
 
 #### Análisis Exploratorio
 
@@ -567,23 +653,50 @@ Antes de contestar los siguiente incisos piensen que rango esperarían ver para 
 
 -   Describe la distribución de datos nulos en la muestra, y como se relaciona con el total de votos, realiza gráficas y describe tus observaciones.
 
-```{r}
-nul_tabla <- muestra_tidy %>% select(NULOS, TOTAL)
+**Hay varios datos atípicos con votos NULOS arriba de 500, hay casillas donde son equiparables al total de votos**
 
+```{r}
+nul_tabla <- muestra_tidy %>% select(NULOS, TOTAL, ESTRATO)
 nul1 <- ggplot(nul_tabla, aes(x = NULOS)) + geom_histogram(bins = 15, fill = "red")
 
 nul_tabla2 <- nul_tabla %>% 
   filter(NULOS > 500)
-
 nul2 <- ggplot(nul_tabla2, aes(x = NULOS)) + geom_histogram(bins = 15, fill = "red")
 
-nul1+nul2
+nul_tabla2 <- nul_tabla %>% 
+  filter(NULOS <= 500)
+nul3 <- ggplot(nul_tabla2, aes(x = NULOS)) + geom_histogram(bins = 15, fill = "red")
+
+nul1
+nul3 + nul2
+
+```
+
+```{r}
+nul_tabla3 <- nul_tabla %>% mutate(prop = NULOS/TOTAL)
+
+nul4 <- ggplot(nul_tabla3, aes(x = prop)) + geom_histogram(bins = 15, fill = "red")
+
+nul4
 
 ```
 
 
+
+```{r}
+#y <- nul_tabla %>% select(TOTAL)
+#x <- nul_tabla %>% select(NULOS)
+group <- as.factor(ifelse(nul_tabla$NULOS > 500, "Atípico", "No atípico"))
+
+plot(x=nul_tabla$TOTAL, y=nul_tabla$NULOS, pch = as.numeric(group), col = group )
+
+```
+
+
+
+
 -   En la distribución de proporción de nulos se observan datos atípicos, ¿cuál crees que sea la razón de estas observaciones extremas? ¿consideras que se deben eliminar de la muestra antes de realizar la estimación?
 
-
+**Probablemente se deben a casillas donde hubo disturbios (o eventualidades) y tuvieron que cerrarse antes de tiempo por seguridad de los representantes de casillas y asistentes. De ser esta suposición cierta,  se deberían de eliminar ya que no representan el caso ideal donde los ciudadanos pueden libremente expresar su voto.**
 
 
