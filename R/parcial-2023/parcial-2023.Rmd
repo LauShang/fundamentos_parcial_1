@@ -488,7 +488,7 @@ g_hist1 + g_qq_normal1
 g_hist2 + g_qq_normal2
 g_hist3 + g_qq_normal3
 ```
-**La distribución está sesgada a la derecha, ya que tiene largas colas a la izquierda, y colas cortas a la derecha **
+**La distribución está sesgada a la izquierda, ya que tiene colas cortas a la izquierda, y colas largas a la derecha **
 
 4.  Reporta tus intervalos en una tabla. Compara la longitud de los 3 intervalos y describe que observas.
 
@@ -643,7 +643,7 @@ interval_cubre %>%
 **Solo 88% de los intervalos de la Opción No contienen al valor real**
 **Solo 74% de los intervalos de los Nulos contienen al valor real**
 
-**Estos porcentajes de cobertura menores al 95%, se deben a que la distribución, como observamos, se encuentra sesgada a la derecha**
+**Estos porcentajes de cobertura menores al 95%, se deben a que la distribución, como observamos, se encuentra sesgada a la izquierda**
 
 #### Análisis Exploratorio
 
